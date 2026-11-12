@@ -1,0 +1,153 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My Orders - Kopipiro</title>
+<style>
+ body {
+   font-family: system-ui, sans-serif;
+   margin: 0;
+   background: #faf6f1;
+   color: #3b2a1e;
+ }
+ header {
+   display: flex;
+   justify-content: space-between;
+   align-items: center;
+   padding: 12px 24px;
+   background: #3b2a1e;
+   color: white;
+ }
+ header a { color: #f3e3c7; }
+ main { max-width: 900px; margin: 30px auto; padding: 0 20px; }
+ .order {
+   background: white;
+   border-radius: 10px;
+   padding: 18px;
+   margin-bottom: 16px;
+   box-shadow: 0 1px 4px #0002;
+ }
+ .order-top {
+   display: flex;
+   justify-content: space-between;
+   flex-wrap: wrap;
+   gap: 10px;
+ }
+ .status {
+   padding: 4px 10px;
+   border-radius: 20px;
+   background: #f3e3c7;
+   font-size: 13px;
+ }
+ .paid { background: #d9f0df; color: #236337; }
+ .done { background: #dce8f8; color: #24518a; }
+ .pending { background: #fff0cf; color: #8a5a00; }
+ .items { color: #666; }
+ .total { font-size: 18px; }
+ .muted { color: #888; font-size: 14px; }
+ button {
+   cursor: pointer;
+   padding: 8px 14px;
+ }
+</style>
+</head>
+<body>
+
+<header>
+ <h1>Kopipiro</h1>
+ <a href="shop.html">Back to shop</a>
+</header>
+
+<main>
+ <h2>My Order History</h2>
+ <p id="welcome"></p>
+ <button id="refresh">Refresh orders</button>
+ <div id="orders">Loading orders...</div>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+
+const esc = s => String(s ?? '').replace(/[&<>"']/g,
+ c => ({
+   '&': '&amp;', '<': '&lt;', '>': '&gt;',
+   '"': '&quot;', "'": '&#39;'
+ }[c]));
+
+const rp = n => 'Rp ' + Number(n).toLocaleString('id-ID');
+
+async function api(url) {
+ const res = await fetch(url);
+ const data = await res.json();
+
+ if (!res.ok) {
+   throw new Error(data.message || 'Request failed');
+ }
+
+ return data;
+}
+
+function formatDate(date) {
+ return new Date(date.replace(' ', 'T')).toLocaleString('id-ID');
+}
+
+async function loadOrders() {
+ $('#orders').textContent = 'Loading orders...';
+
+ try {
+   const me = await api('api/auth.php?action=me');
+
+   if (me.role !== 'customer') {
+     $('#welcome').textContent = '';
+     $('#orders').innerHTML =
+       'Please log in with a customer account to view your orders.';
+     return;
+   }
+
+   $('#welcome').textContent = 'Welcome, ' + me.name + '!';
+
+   const orders = await api('api/orders.php');
+
+   if (!orders.length) {
+     $('#orders').textContent = 'You have no orders yet.';
+     return;
+   }
+
+   $('#orders').innerHTML = orders.map(o => `
+     <div class="order">
+       <div class="order-top">
+         <div>
+           <b>${esc(o.order_code)}</b>
+           <p class="muted">${formatDate(o.created_at)}</p>
+         </div>
+         <span class="status ${esc(o.status)}">
+           ${esc(o.status.toUpperCase())}
+         </span>
+       </div>
+
+       <hr>
+
+       <p><b>Items</b></p>
+       <p class="items">${esc(o.items || '-')}</p>
+
+       <p>Subtotal: ${rp(o.subtotal)}</p>
+       <p>Discount: ${rp(o.discount)}</p>
+       <p class="total"><b>Total: ${rp(o.total)}</b></p>
+
+       <p class="muted">Cashier: ${esc(o.cashier || '-')}</p>
+     </div>
+   `).join('');
+
+ } catch (err) {
+   $('#orders').textContent = err.message;
+ }
+}
+
+$('#refresh').onclick = loadOrders;
+loadOrders();
+</script>
+
+</body>
+</html>

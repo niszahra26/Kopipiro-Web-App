@@ -1,0 +1,6 @@
+# Local configuration and credentials
+/config.php
+/.env
+
+# Dependencies
+/vendor/
